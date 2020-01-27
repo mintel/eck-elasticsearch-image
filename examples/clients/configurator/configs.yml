@@ -1,0 +1,75 @@
+apiVersion: v1
+data:
+  kibana.yml: |
+    ---
+    settings:
+      queryString:
+        changes:
+          "query:queryString:options": "{ \"analyze_wildcard\": true, \"default_field\": \"log\" }"
+      defaultIndex:
+        changes:
+          "defaultIndex": "kubernetes"
+    indexes:
+      kubernetes:
+        attributes:
+          title: kubernetes
+          timeFieldName: "@timestamp"
+      logstash:
+        attributes:
+          title: logstash
+          timeFieldName: "@timestamp"
+      events:
+        attributes:
+          title: events
+          timeFieldName: "@timestamp"
+      fluxcloud:
+        attributes:
+          title: fluxcloud
+          timeFieldName: "@timestamp"
+      haproxy:
+        attributes:
+          title: haproxy
+          timeFieldName: "@timestamp"
+  snapshots.yml: |
+    repos:                 
+      minio:                                                                                                                 
+        type: s3        
+        settings:                                             
+          bucket: elasticsearch                               
+          client: default                                     
+          base_path: el-7                                     
+    policy:                                                   
+      daily:                                                  
+        schedule: "0 30 0 * * ?"                                                                                             
+        repository: minio                                                                                                    
+        name: "<daily-snap-{now/d}>"                                                                                         
+        config:
+          ignore_unavailable: false
+        retention:
+          expire_after: "90d"
+          min_count: 5
+          max_count: 40
+      hourly:
+        schedule: "0 10 * * * ?"
+        repository: minio
+        name: "<hourly-snap-{now/H{yyyy.MM.dd.H}}>"
+        config:
+          ignore_unavailable: false
+        retention:
+          expire_after: "24h"
+          min_count: 3
+          max_count: 24
+
+  users.yml: |
+    ---
+    users:
+      kibana:
+        password: password
+        roles:
+          - superuser
+        full_name: kibana
+        email: kibana@mintelcloud.io
+kind: ConfigMap
+metadata:
+  name: elastic-configurator
+  namespace: default

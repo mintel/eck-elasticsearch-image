@@ -1,0 +1,60 @@
+---
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elastic
+spec:
+  version: 7.5.1
+  updateStrategy:
+    changeBudget:
+      maxSurge: 1
+      maxUnavailable: 1
+  nodeSets:
+  - name: default
+    count: 1
+    config:
+      node.master: true
+      node.data: true
+      node.ingest: true
+      node.ml: false
+      xpack.ml.enabled: false
+      xpack.monitoring.enabled: true
+      xpack.monitoring.collection.enabled: true
+      xpack.security.authc.anonymous.username: anonymous_user 
+      xpack.security.authc.anonymous.roles: superuser
+      xpack.security.authc.anonymous.authz_exception: true
+
+    podTemplate:
+      metadata:
+        labels:
+          logformat: json
+      spec:
+        initContainers:
+        - name: install-plugins
+          command:
+          - sh
+          - -c
+          - |
+            bin/elasticsearch-plugin install --batch repository-s3
+        containers:
+        - name: elasticsearch
+          env:
+          - name: ES_JAVA_OPTS
+            value: -Xms512m -Xmx512m
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 0.25
+            limits:
+              memory: 1Gi
+              cpu: 0.5
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+        storageClassName: local-path

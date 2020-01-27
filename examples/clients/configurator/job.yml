@@ -1,0 +1,67 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    name: configurator
+  name: configurator
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        name: configurator
+    spec:
+      containers:
+      - env:
+        - name: TRACE
+          value: "true"
+        - name: HOME
+          value: /tmp
+        - name: ES_ENDPOINT
+          value: https://elastic-es-http:9200
+        - name: KIBANA_ENDPOINT
+          value: https://elastic-kb-http:5601
+        - name: KIBANA_WAIT_ENDPOINT
+          value: tcp://elastic-kb-http:5601
+        image: mintel/docker-alpine-bash-curl-jq:2.2.0
+        name: es-configurator
+        resources:
+          limits:
+            cpu: 50m
+            memory: 64Mi
+          requests:
+            cpu: 5m
+            memory: 8Mi
+        command:
+          - dockerize
+          - "-wait"
+          - $(KIBANA_ENDPOINT)
+          - "-wait"
+          - $(ES_ENDPOINT)/_cluster/health
+          - "-timeout"
+          - 600s
+          - -wait-retry-interval
+          - 30s
+          - -insecure-ssl
+          - "--"
+          - bash
+          - /tmp/configurator.sh
+        volumeMounts:
+        - mountPath: /tmp/configurator
+          name: config-volume
+        - mountPath: /tmp/configurator.sh
+          name: script-volume
+          subPath: configurator.sh
+      restartPolicy: Never
+      securityContext:
+        fsGroup: 65534
+        runAsNonRoot: true
+        runAsUser: 65534
+      volumes:
+      - configMap:
+          name: elastic-configurator
+        name: config-volume
+      - configMap:
+          name: elastic-configurator-script
+        name: script-volume

@@ -1,0 +1,28 @@
+---
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: elastic
+spec:
+  version: 7.5.1
+  count: 1
+  elasticsearchRef:
+    name: elastic
+    namespace: default
+  config:
+    status.allowAnonymous: true
+  podTemplate:
+    metadata:
+      labels:
+        tier: frontend
+        logformat: json
+    spec:
+      containers:
+      - name: kibana
+        resources:
+          requests:
+            memory: 128Mi
+            cpu: 0.1
+          limits:
+            memory: 1Gi
+            cpu: 0.3

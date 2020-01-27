@@ -1,0 +1,161 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elastic-configurator-script
+  namespace: default
+data:
+  configurator.sh: |
+    #!/bin/bash
+    set -e
+    
+    [[ -n ${TRACE} ]] && set -x
+    
+    ES_ENDPOINT=${ES_ENDPOINT:-http://localhost:9200}
+    KIBANA_ENDPOINT=${KIBANA_ENDPOINT:-http://localhost:5601}
+    SNAPSHOTS_CONF_FILE="${CONFIG_FILE:-/tmp/configurator/snapshots.yml}"
+    ILM_CONF_FILE="${CONFIG_FILE:-/tmp/configurator/ilm.yml}"
+    KIBANA_CONF_FILE="${CONFIG_FILE:-/tmp/configurator/kibana.yml}"
+    USERS_CONF_FILE="${CONFIG_FILE:-/tmp/configurator/users.yml}"
+    
+    YQ_CMD="yq"
+    JQ_CMD="jq"
+    if [[ -n ${TRACE} ]]; then
+      HTTP_CMD="http --print HhBb --verify=no"
+    else 
+      HTTP_CMD="http --print b --verify=no"
+    fi
+    HTTP_CMD_CS="${HTTP_CMD} --check-status"
+    HTTP_CMD_CS_NOSTDIN="${HTTP_CMD} --ignore-stdin --check-status"
+
+    # Default Authorization Header BASIC kibana:password
+    KIBANA_AUTH_HEADER=${KIBANA_AUTH_HEADER:-"Basic a2liYW5hOnBhc3N3b3Jk"}
+
+
+    create_es_user() {
+      local user
+      local json
+
+      user="${1}"
+      json="${2}"
+
+      echo "${json}" | $HTTP_CMD_CS PUT "${ES_ENDPOINT}/_security/user/${user}"
+    }
+    
+    create_slm_repo() {
+      local repo
+      local json
+    
+      repo="${1}"
+      json="${2}"
+    
+      echo "${json}" | $HTTP_CMD_CS PUT "${ES_ENDPOINT}/_snapshot/${repo}"
+    }
+    
+    create_slm_policy() {
+      local policy
+      local json
+    
+      policy="${1}"
+      json="${2}"
+    
+      echo "${json}" | $HTTP_CMD_CS PUT "${ES_ENDPOINT}/_slm/policy/${policy}"
+    }
+    
+    create_kb_settings() {
+      local settings
+      local json
+    
+      settings="${1}"
+      json="${2}"
+    
+      echo "${json}" | $HTTP_CMD_CS POST "${KIBANA_ENDPOINT}/api/kibana/settings" kbn-xsrf:true Authorization:"${KIBANA_AUTH_HEADER}"
+    }
+
+    create_kb_index() {
+      local default
+      local index
+      local json
+    
+      index="${1}"
+      json="${2}"
+    
+      echo "${json}" | $HTTP_CMD_CS POST "${KIBANA_ENDPOINT}/api/saved_objects/index-pattern/${index}?overwrite=true" kbn-xsrf:true Authorization:"${KIBANA_AUTH_HEADER}"
+    }
+
+
+    if [[ -f ${USERS_CONF_FILE} ]]; then
+      # Get Snapshot Repos
+      mapfile -t es_users < <(${YQ_CMD} -r '.users // {} | keys[]' ${USERS_CONF_FILE})
+      
+      
+      # Create Snapshot Repos
+      if [[ ${#es_users[@]} -gt 0 ]]; then
+        for u in "${es_users[@]}"; do
+          printf "\n#####################################\n"
+          echo "Creating User: $u"
+          create_es_user "${u}" "$(${YQ_CMD} -c -r .users."${u}" ${USERS_CONF_FILE})"
+        done
+      fi
+    else
+      printf "\n#####################################\n"
+      echo "USERS conf file ${USERS_CONF_FILE} is missing"
+    fi
+    
+    if [[ -f ${SNAPSHOTS_CONF_FILE} ]]; then
+      # Get Snapshot Repos
+      mapfile -t repos < <(${YQ_CMD} -r '.repos // {} | keys[]' ${SNAPSHOTS_CONF_FILE})
+      # Get Snapshot Policies
+      mapfile -t policies < <(${YQ_CMD} -r '.policy // {} | keys[]' ${SNAPSHOTS_CONF_FILE})
+      
+      
+      # Create Snapshot Repos
+      if [[ ${#repos[@]} -gt 0 ]]; then
+        for r in "${repos[@]}"; do
+          printf "\n#####################################\n"
+          echo "Creating Snapshot Repository: $r"
+          create_slm_repo "${r}" "$(${YQ_CMD} -c -r .repos."${r}" ${SNAPSHOTS_CONF_FILE})"
+        done
+      fi
+      
+      # Create Snapshot Repos
+      if [[ ${#policies[@]} -gt 0 ]]; then
+        for p in "${policies[@]}"; do
+          printf "\n#####################################\n"
+          echo "Creating Snapshot Policy: $p"
+          create_slm_policy "${p}" "$(${YQ_CMD} -c -r .policy."${p}" ${SNAPSHOTS_CONF_FILE})"
+        done
+      fi
+    else
+      printf "\n#####################################\n"
+      echo "SNAPSHOTS conf file ${SNAPSHOTS_CONF_FILE} is missing"
+    fi
+
+    if [[ -f ${KIBANA_CONF_FILE} ]]; then
+      # Get Settings 
+      mapfile -t kb_settings < <(${YQ_CMD} -r '.settings // {} | keys[]' ${KIBANA_CONF_FILE})
+      # Get indexes
+      mapfile -t kb_indexes < <(${YQ_CMD} -r '.indexes // {} | keys[]' ${KIBANA_CONF_FILE})
+
+      # Create Kibana Settings
+      if [[ ${#kb_settings[@]} -gt 0 ]]; then
+        for s in "${kb_settings[@]}"; do
+          printf "\n#####################################\n"
+          echo "Creating Kibana Settings: $s"
+          create_kb_settings "${s}" "$(${YQ_CMD} -c -r .settings."${s}" ${KIBANA_CONF_FILE})"
+        done
+      fi
+      
+      # Create Kibana Indexes
+      if [[ ${#kb_indexes[@]} -gt 0 ]]; then
+        for i in "${kb_indexes[@]}"; do
+          printf "\n#####################################\n"
+          echo "Creating Kibana Index: $i"
+          create_kb_index "${i}" "$(${YQ_CMD} -c -r .indexes."${i}" ${KIBANA_CONF_FILE})"
+        done
+      fi
+
+    else
+      printf "\n#####################################\n"
+      echo "KIBANA conf file ${KIBANA_CONF_FILE} is missing"
+    fi
