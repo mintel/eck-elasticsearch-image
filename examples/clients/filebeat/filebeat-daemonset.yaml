@@ -64,6 +64,19 @@ spec:
         - name: varlog
           mountPath: /var/log
           readOnly: true
+      - name: exporter
+        image: trustpilot/beat-exporter:0.3.0
+        securityContext:
+          runAsUser: 65534
+        ports:
+        - containerPort: 9479
+          name: metrics
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 50m
+            memory: 100Mi
       volumes:
       - name: config
         configMap:
