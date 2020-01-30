@@ -40,7 +40,7 @@ data:
       port: 5066
 
     processors:
-      - add_cloud_metadata:
+      #- add_cloud_metadata:
       - add_host_metadata:
       - add_fields:   
           target: ''
