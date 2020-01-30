@@ -38,6 +38,7 @@ data:
     http:
       enabled: true
       port: 5066
+
     processors:
       - add_cloud_metadata:
       - add_host_metadata:
@@ -46,6 +47,17 @@ data:
           fields:                                               
             k8s_cluster: cluster
             k8s_environment: dev
+      - decode_json_fields:   
+          when:
+            equals:
+              kubernetes.labels.logformat: json
+          fields: ["message"]
+          process_array: true
+          max_depth: 1
+          target: "json"
+
+
+
     setup.template:                                           
       overwrite: true                                         
       settings:                                                                                                              
