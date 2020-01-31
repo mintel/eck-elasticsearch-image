@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config
+  namespace: kube-system
+  labels:
+    k8s-app: filebeat
+data:
+  filebeat.yml: |-
+    filebeat.inputs:
+    - type: container
+      paths:
+        - /var/log/containers/*.log
+      processors:
+        - add_kubernetes_metadata:
+            host: ${NODE_NAME}
+            matchers:
+            - logs_path:
+                logs_path: "/var/log/containers/"
+
+    # To enable hints based autodiscover, remove `filebeat.inputs` configuration and uncomment this:
+    #filebeat.autodiscover:
+    #  providers:
+    #    - type: kubernetes
+    #      node: ${NODE_NAME}
+    #      hints.enabled: true
+    #      hints.default_config:
+    #        type: container
+    #        paths:
+    #          - /var/log/containers/*${data.kubernetes.container.id}.log
+
+    monitoring:
+      enabled: true
+      elasticsearch:
+        username: kibana
+        password: password
+    http:
+      enabled: true
+      port: 5066
+
+    processors:
+      #- add_cloud_metadata:
+      - add_host_metadata:
+      - add_fields:   
+          target: ''
+          fields:                                               
+            k8s_cluster: cluster
+            k8s_environment: dev
+      - decode_json_fields:   
+          when:
+            equals:
+              kubernetes.labels.logformat: json
+          fields: ["message"]
+          process_array: true
+          max_depth: 1
+          target: "json"
+
+
+
+    setup.template:                                           
+      overwrite: true                                         
+      settings:                                                                                                              
+        #index.lifecycle.name: filebeat
+        index.number_of_shards: 1                             
+        index.number_of_replicas: 2                           
+    setup.ilm:                                                
+      enabled: true                                           
+      rollover_alias: "filebeat"
+      policy_name: "filebeat"                                   
+      policy_file: "/etc/filebeat_ilm_policy.json"
+      overwrite: true
+    output.elasticsearch:    
+      hosts: ["https://elastic-es-http.default.svc.cluster.local:9200"]
+      ssl.verification_mode: none

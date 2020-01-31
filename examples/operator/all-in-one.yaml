@@ -1699,7 +1699,7 @@ spec:
       containers:
       - image: docker.elastic.co/eck/eck-operator:1.0.0
         name: manager
-        args: ["manager", "--operator-roles", "all", "--log-verbosity=1"]
+        args: ["manager", "--operator-roles", "all", "--log-verbosity=2"]
         env:
           - name: OPERATOR_NAMESPACE
             valueFrom:
