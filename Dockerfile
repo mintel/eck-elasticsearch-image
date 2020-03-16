@@ -15,3 +15,7 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
 RUN set -ex \
     && bin/elasticsearch-plugin install --batch repository-gcs \
     && bin/elasticsearch-plugin install --batch repository-s3
+
+# Reduce the number of rotated JVM GC logs we keep to avoid filling k8s ephemeral storage
+RUN sed -r "s/NumberOfGCLogFiles=[0-9]+/NumberOfGCLogFiles=4/" -i /usr/share/elasticsearch/config/jvm.options \
+  && sed -r "s/filecount=[0-9]+,filesize=[0-9]+[kmg]/filecount=4,filesize=64m/" -i /usr/share/elasticsearch/config/jvm.options
