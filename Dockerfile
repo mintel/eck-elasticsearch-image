@@ -16,4 +16,5 @@ RUN set -ex \
     && bin/elasticsearch-plugin install --batch repository-gcs \
     && bin/elasticsearch-plugin install --batch repository-s3
 
-RUN sed -r "s/filecount=[0-9]+,filesize=[0-9]+[kmg]/filecount=4,filesize=64m/" -i /usr/share/elasticsearch/config/jvm.options
+RUN sed -i -E "s/(8:-XX:NumberOfGCLogFiles=)\w+/\14/" /usr/share/elasticsearch/config/jvm.options \
+  && sed -i -E "s/(9-:-Xlog:gc.+filecount=)[^:,]+(.*)/\14\2/" /usr/share/elasticsearch/config/jvm.options 
