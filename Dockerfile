@@ -1,4 +1,4 @@
-FROM docker.elastic.co/elasticsearch/elasticsearch:7.5.2
+FROM docker.elastic.co/elasticsearch/elasticsearch:7.8.0
 
 ARG BUILD_DATE
 ARG VCS_REF
