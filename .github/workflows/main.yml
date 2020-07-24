@@ -1,0 +1,17 @@
+name: main
+
+on: 
+  - push
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      #- name: Shellcheck and shfmt
+      #  uses: luizm/action-sh-checker@v0.1.4
+
+      - name: Hadolint
+        uses: brpaz/hadolint-action@v1.1.0
