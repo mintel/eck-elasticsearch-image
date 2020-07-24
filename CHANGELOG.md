@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 7.8.0-0 (2020-07-24)
+### Added
+- Update base image to 7.8.0
+
 ## 7.5.2-1 (2020-03-16)
 ### Added
 - Patch JVM options to reduce GC log retention
